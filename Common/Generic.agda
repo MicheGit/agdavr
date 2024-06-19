@@ -67,3 +67,7 @@ neg-exists f (a , nba) = nba (f a)
 
 neg-exists₁ : {A : Set} {B : A → Set} → ((a : A) → ¬ B a) → ¬ (Σ[ a ∈ A ] (B a))
 neg-exists₁ f (a , ba) = f a ba
+
+either : (b : Bool) → b ≡ false ∨ b ≡ true
+either true = right refl
+either false = left refl

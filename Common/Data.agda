@@ -31,6 +31,9 @@ data _≡_ {X : Set} : X → X → Set where
 trans-≡ : {A : Set} {a b c : A} → a ≡ b → b ≡ c → a ≡ c
 trans-≡ refl refl = refl
 
+comm-≡ : {A : Set} {a b : A} → a ≡ b → b ≡ a
+comm-≡ refl = refl
+
 subst : {A : Set} (P : A → Set) {x y : A} → (x ≡ y) → P x → P y
 subst P refl u = u
 
@@ -66,3 +69,10 @@ fmap-right f (right x) = right (f x)
 data _<_ : (a : ℕ) → (b : ℕ) → Set where
     <-base : {x : ℕ} → zero < succ x
     <-succ : {x y : ℕ} → x < y → succ x < succ y
+
+less-leq : {a b : ℕ} → a ≤ b → a < succ b
+less-leq ≤-base = <-base
+less-leq (≤-succ a) = <-succ (less-leq a)
+
+leq-less : {a b : ℕ} → succ a ≤ b → a < b
+leq-less (≤-succ a≤b) = less-leq a≤b

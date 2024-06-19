@@ -30,16 +30,58 @@ module ConstructiveManually where
 
 module Classical where
 
-    open import Common.Default
+    import Common.Data as D
 
-    postulate 
-        lem : {A : Set} → A ∨ ¬ A 
+    Stolzenberg→ : (D.ℕ → D.Bool) → D.Bool → Set
+    Stolzenberg→ f g = ((a : D.ℕ) → (D.Σ[ b ∈ D.ℕ ] (a D.≤ b D.∧ f b D.≡ g)))
+
+    Stolzenberg : (D.ℕ → D.Bool) → Set
+    Stolzenberg f = (Stolzenberg→ f D.false) D.∨ (Stolzenberg→ f D.true)
+
+    module ProveStolz (⊥ : Set) where
+
+        open import Common.Generic (⊥) public
+
+        module _ (f : ℕ → Bool) where
+
+            StolzL : Set
+            StolzL = ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ false)))
+
+            StolzR : Set
+            StolzR = ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ true)))
+        
+            -- lemma₁ : (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) → ¬ StolzL
+            -- lemma₁ ( a , prms ) sl with sl a
+            -- ... | ( b , ( a≤b , fb≡false )) = bool-lem fb≡false (prms b a≤b)
+
+            lemma₀ : (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) ∨ StolzL
+            lemma₀ = {!   !}
+
+            lemma₁ : ¬ (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) → StolzL
+            lemma₁ prf a = {!   !}
+
+            lemma₂ : ¬ StolzL → ¬ ¬ (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true))
+            lemma₂ = smth lemma₁
+
+            lemma₃ : (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) → StolzR
+            lemma₃ (a , prm ) a₁ with cmp a a₁
+            ... | left a≤a₁ = a₁ , (≤-refl , prm a₁ a≤a₁)
+            ... | right a₁≤a = a , (a₁≤a , prm a ≤-refl)
+            
+            lemma₄ : ¬ StolzL → ¬ ¬ StolzR
+            lemma₄ f = lemma₂ f ⟫= λ x → return (lemma₃ x)
+
+            lemma₅ : StolzL ∨ ¬ StolzL → StolzL ∨ ¬ ¬ StolzR
+            lemma₅ = fmap-right lemma₄
+
+            theorem' : ¬ ¬ Stolzenberg f
+            theorem' = dn-lem ⟫= λ lem → left-escape (lemma₅ lem)
     
-    thm' : {f : ℕ → Bool} (a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ false)) ∨ (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ true)) 
-    thm' a = distr-Σ-∨ (a , distr-∧-∨ (≤-refl , fmap-right bool-neg lem))
-
-    theorem : (f : ℕ → Bool) → ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ false))) ∨ ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ true)))
-    theorem f = {!   !}
+    module ProofStolz (f : D.ℕ → D.Bool) where
+        open ProveStolz (Stolzenberg f) public
+        
+        proof : Stolzenberg f
+        proof = escape (theorem' f)
     
 -- Ex 3.2.b
 {-
@@ -76,79 +118,30 @@ module LemmaC where
 
 module LemmaD where
 
-    module AssumeBottom (⊥ : Set) where
+    import Common.Data as D
 
-        open import Common.Generic (⊥)
+    one = D.succ D.zero
+    two = D.succ one
 
-        module _ (f : ℕ → Bool) where
-            Stolzenberg→ : Bool → Set
-            Stolzenberg→ g = ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ g)))
+    module _ (f : D.ℕ → D.Bool) where
+        open Classical.ProofStolz (f)
 
-            Stolzenberg : Set
-            Stolzenberg = (Stolzenberg→ false) ∨ (Stolzenberg→ true)
+        -- Here the program can just apply the proof twice to find two different 
+        -- numbers a and b s.t. f a ≡ f b. 
+        -- It doesn't search necessarily for one or two after zero
 
-            -- NegStolzenberg→False : Set
-            -- NegStolzenberg→False = (Σ[ a ∈ ℕ ] ((b : ℕ) → (a ≤ b → f b ≡ true)))
+        lemma : (Σ[ i ∈ ℕ ] (Σ[ j ∈ ℕ ] (i < j ∧ f i ≡ f j)))
+        lemma with proof
+        lemma | D.left  x with x zero
+        lemma | D.left  x | a , (zero≤a , fa≡false ) with x (succ a)
+        lemma | D.left  x | a , (zero≤a , fa≡false ) | b , (a≤b , fb≡false ) = a , (b , (leq-less a≤b , trans-≡ fa≡false (comm-≡ fb≡false)))
+        lemma | D.right x with x zero
+        lemma | D.right x | a , (zero≤a , fa≡true ) with x (succ a)
+        lemma | D.right x | a , (zero≤a , fa≡true ) | b , (a≤b , fb≡true ) = a , (b , (leq-less a≤b , trans-≡ fa≡true (comm-≡ fb≡true)))
 
-            -- NegStolzenberg→True : Set
-            -- NegStolzenberg→True = (Σ[ a ∈ ℕ ] ((b : ℕ) → (a ≤ b → ¬ f b ≡ true)))
+    
 
-            -- try1 : (Stolzenberg→ false) → ¬ NegStolzenberg→False
-            -- try1 sf (a , promise) with sf a
-            -- ... | x , (a≤x , fx≡false ) = bool-lem fx≡false (promise x a≤x)
-
-            either : (b : Bool) → b ≡ false ∨ b ≡ true
-            either true = right refl
-            either false = left refl
-
-            -- ⊥-elim : {A : Set} → ⊥ → A
-            -- ⊥-elim = {!   !}
-
-            -- int1 : ¬ NegStolzenberg→False → Stolzenberg→ false
-            -- int1 ns a = {!   !}
-
-            -- try2 : ¬ NegStolzenberg→False → ¬ ¬ ¬ ¬ Stolzenberg→ false
-            -- try2 ns nf = {!   !}
-
-
-            -- lem⇒thm : {A : Set} → (A ∨ ¬ A) → (¬ NegStolzenberg→False ∨ ¬ NegStolzenberg→True) → ¬ ¬ ((Stolzenberg→ false) ∨ (Stolzenberg→ true))
-            -- lem⇒thm lem (left  x) = try2 x ⟫= left-dn
-            -- lem⇒thm lem (right x) = {!   !}
-
-            -- theorem : ¬ ¬ Stolzenberg
-            -- theorem = dn-lem ⟫= λ lem → and-neg-dn lemma₁ ⟫= lem⇒thm lem -- lem⇒thm lem
-            --     where 
-            --         lemma₁ : ¬ (NegStolzenberg→False ∧ NegStolzenberg→True)
-            --         lemma₁ ((a , pra) , (b , prb)) with cmp a b
-            --         ... | left a≤b = prb b ≤-refl (pra b a≤b)
-            --         ... | right b≤a = prb a b≤a (pra a ≤-refl)
-
-            StolzL : Set
-            StolzL = ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ false)))
-
-            StolzR : Set
-            StolzR = ((a : ℕ) → (Σ[ b ∈ ℕ ] (a ≤ b ∧ f b ≡ true)))
-        
-            -- lemma₁ : (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) → ¬ StolzL
-            -- lemma₁ ( a , prms ) sl with sl a
-            -- ... | ( b , ( a≤b , fb≡false )) = bool-lem fb≡false (prms b a≤b)
-
-            lemma₂ : ¬ StolzL → ¬ ¬ (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true))
-            lemma₂ nsl nex = {!   !}
-
-            lemma₃ : (Σ[ a ∈ ℕ ] ((b : ℕ) → a ≤ b → f b ≡ true)) → StolzR
-            lemma₃ (a , prm ) a₁ with cmp a a₁
-            ... | left a≤a₁ = a₁ , (≤-refl , prm a₁ a≤a₁)
-            ... | right a₁≤a = a , (a₁≤a , prm a ≤-refl)
-            
-            lemma₄ : ¬ StolzL → ¬ ¬ StolzR
-            lemma₄ f = lemma₂ f ⟫= λ x → return (lemma₃ x)
-
-            lemma₅ : StolzL ∨ ¬ StolzL → StolzL ∨ ¬ ¬ StolzR
-            lemma₅ = fmap-right lemma₄
-
-            theorem' : ¬ ¬ Stolzenberg
-            theorem' = dn-lem ⟫= λ lem → left-escape (lemma₅ lem)
+    
 
     
 
